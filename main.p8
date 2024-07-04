@@ -141,14 +141,42 @@ local ui = {
   end
 }
 
+-- local tiles_4x4_classic = {
+--     {1, 1, 5, 5, 7, 14},
+--     {5, 12, 18, 20, 20, 25},
+--     {1, 15, 15, 20, 20, 23},
+--     {1, 2, 2, 10, 15, 15},
+--     {5, 8, 18, 20, 22, 23},
+--     {3, 9, 13, 15, 20, 21},
+--     {4, 9, 19, 20, 20, 25},
+--     {5, 9, 15, 19, 19, 20},
+--     {4, 5, 12, 18, 22, 25},
+--     {1, 3, 8, 15, 16, 19},
+--     {8, 9, 13, 14, 17, 21},
+--     {5, 5, 9, 14, 19, 21},
+--     {5, 5, 7, 8, 14, 23},
+--     {1, 6, 6, 11, 16, 19},
+--     {8, 12, 14, 14, 18, 26},
+--     {4, 5, 9, 12, 18, 24}
+-- }
+
 local board={
     tiles={},
-    current_tiles={},
+    tile_config={},
+    shake=function(self)
+        for cube in all(self.tiles) do
+            add(self.tile_config, cube[flr(rnd(5) + 1)])
+        end
+    end,
     init=function(self)
+        self.tiles=tiles_4x4_new
+        self:shake()
     end,
     update=function(self)
+        log("tile_config", self.tile_config)
     end,
     draw=function(self)
+        -- draw
     end
 }
 
@@ -167,6 +195,7 @@ end
 function _init()
     log("PROGRAM START")
     cartdata("oscardalby_game_v0")
+    board:init()
 end
 
 function _update()
