@@ -3,33 +3,51 @@ version 42
 __lua__
 
 #include utils.p8
-#include particle_system.p8
-#include speech.p8
+
 
 -- state
 local game_running = false
 local start_menu = true
 local paused = false
-local death_screen = false
-local player
-local entities = {}
-local current_room_bounds = {}
-local player_spawn_x = 0
-local cam_x = 0
-local cam_y = 0
-local heart_spr=113
-local item_spr={
-    torch=95,
-    sword=45,
+local timer = 0
+
+local tiles_4x4_classic = {
+    {1, 1, 5, 5, 7, 14},
+    {5, 12, 18, 20, 20, 25},
+    {1, 15, 15, 20, 20, 23},
+    {1, 2, 2, 10, 15, 15},
+    {5, 8, 18, 20, 22, 23},
+    {3, 9, 13, 15, 20, 21},
+    {4, 9, 19, 20, 20, 25},
+    {5, 9, 15, 19, 19, 20},
+    {4, 5, 12, 18, 22, 25},
+    {1, 3, 8, 15, 16, 19},
+    {8, 9, 13, 14, 17, 21},
+    {5, 5, 9, 14, 19, 21},
+    {5, 5, 7, 8, 14, 23},
+    {1, 6, 6, 11, 16, 19},
+    {8, 12, 14, 14, 18, 26},
+    {4, 5, 9, 12, 18, 24}
+}
+local tiles_4x4_new = {
+    {1, 1, 3, 9, 15, 20},
+    {1, 8, 13, 15, 18, 19},
+    {5, 7, 11, 12, 21, 25},
+    {1, 2, 9, 12, 20, 25},
+    {1, 3, 4, 5, 13, 16},
+    {5, 7, 9, 14, 20, 22},
+    {7, 9, 12, 18, 21, 23},
+    {5, 12, 16, 19, 20, 21},
+    {4, 5, 14, 15, 19, 23},
+    {1, 3, 5, 12, 18, 19},
+    {1, 2, 10, 13, 15, 17},
+    {5, 5, 6, 8, 9, 25},
+    {5, 8, 9, 14, 16, 19},
+    {4, 11, 14, 15, 20, 21},
+    {1, 4, 5, 14, 22, 26},
+    {2, 9, 6, 15, 18, 24}
 }
 
-local current_prompt = ""
-
-function draw_prompt(x, y, prompt)
-    print(prompt, x, y, 7)
-end
-
-local TILE_COLORS={default=48,[1]=6,[2]=6,[3]=6,[17]=6,[18]=6,[19]=6,[33]=6,[34]=6,[35]=6,[49]=6,[50]=6,[51]=6}
 
 local core = {
     cursor_pos = 1,
@@ -72,7 +90,7 @@ local core = {
     draw=function(self)
         if start_menu then
             local text = "press any button to start"
-            spr(64,player_spawn_x+60,70)
+            spr(64,60,70)
             print(text, cam_x+(CONFIG.SCREEN_WIDTH - #text * 4) / 2, 40, 10)
         elseif paused then -- pause menu 
             local text_x = cam_x+(CONFIG.SCREEN_WIDTH - 64) / 2
@@ -88,7 +106,7 @@ local core = {
     end,
     update=function(self)
         self.pause_timeout-=1
-        if btnp(2,1) and (not paused) and (not in_conversation) then
+        if btnp(2,1) and (not paused)  then
                 self:pause()
                 self.pause_timeout=2
         end
@@ -113,32 +131,9 @@ local core = {
 }
   
 local ui = {
-  map_mapping = {[0]=0,[17]=7},
-  mini_map={},
-  draw_minimap = function(self, x, y, ox, oy)
-        local rows = 16
-        local cols = 16
-        rect(x-1,y-1,x+cols+1,y+rows+1)
-        rectfill(x, y, x+cols, y+rows, 0)
-        for r = 0, rows do
-         for c = 0, cols do
-          local tl = mget(ox + c, oy + r)
-          local cl = TILE_COLORS[tl] or TILE_COLORS["default"]
-          pset(x + c, y + r, cl)
-        
-         end
-        end
-        pset(cam_x+CONFIG.SCREEN_WIDTH-14, (player.y/8)+4, player.color)
-
-        -- for entity in all(entities) do
-        --  local entity_x = flr(entity.x) - flr(ox)
-        --  local entity_y = flr(entity.y) - oy
-        --  pset(x + entity_x, y + entity_y, entity.color)
-        -- end
-  end,
   draw_hp=function(self)
     for i=1,player.hp do
-      spr(heart_spr,player.x-CONFIG.SCREEN_WIDTH/2 - 2 +(i*12),4,1, 1)
+      spr(1,player.x-CONFIG.SCREEN_WIDTH/2 - 2 +(i*12),4,1, 1)
     end
   end,
   draw_equipment_icon=function(self)
@@ -155,285 +150,11 @@ local ui = {
   end
 }
 
-function spawn_player(x, y, width, height, color)
-    player = {
-        name="Splorer",
-        sp=64,
-        x = x,
-        y = y,
-        w=8,
-        h=8,
-        color=9, -- for the minimap
-        flip_x=false, -- use this as dir, if flip_x then dir=="left", else dir=="right"
-        dx=0,
-        dy=0,
-        max_dx=1, -- dx speed limiter
-        max_dy=2.5, -- dy speed limiter
-        acc=0.25, -- ddx * dx
-        boost=4, -- jump power
-        anim=0,
-        hp=3,
-        running=false,
-        jumping=false,
-        jumping_off_ladder=false,
-        falling=false,
-        sliding=false,
-        landed=false,
-        holding_up=false,
-        holding_down=false,
-        climb_speed=0.5,
-        gravity=0.3,
-        friction=0.7,
-        equipped_x = 50,
-        equipped_y = 50,
-        equipped=1,
-        inventory = {
-            {spr=94}, -- nothing
-            { -- torch
-                spr=95,
-                init=function(self, player)
-                    self.objects:init()
-                end,
-                update=function(self, player)
-                    self.objects:update()
+local board={
+    tiles={},
+    current_tiles={},
+}
 
-                    if player.flip_x then
-                        self.objects.x = player.x - (player.w*(3/4))
-                    else
-                        self.objects.x = player.x + (player.w)
-                    end
-
-                    
-
-                    
-                    self.objects.y = player.y + (player.h / 2)
-                end,
-                draw=function(self, player)
-                    self.objects:draw()
-                end,
-                objects=particle_system:new({n=2, x=3000, y=3000, r_min=0, r_max=3, force=0, spread=1, life=8})
-            },
-            {spr=79}, -- sword
-            
-        },
-        init = function(self)
-            if self.equipped ~= 1 then
-                local item_init = self.inventory[self.equipped].init
-                if item_init ~= nil then
-                    self.inventory[self.equipped]:init(self)
-                end
-            end
-        end,
-        update = function(self)
-            if conversation_timeout > 0 and not in_conversation then
-                conversation_timeout -= 1
-            end
-
-            if collide_map(player, "pickup", 70) then
-                if not in_conversation and conversation_timeout < 1 then
-                    current_prompt="press x to answer the phone"
-                else
-                    current_prompt=""
-                end
-            else
-                current_prompt=""
-            end
-
-            if conversation_timeout < 1 then
-                if btn(5) then
-                    if collide_map(player, "pickup", 70) then
-                        speech:load_messages({"hello little one", "are you sure you're ready?", "ok, well...", "just try not to get lost"})
-                        return
-                    end
-                end
-            end
-            if in_conversation then
-                if btnp(5) then
-                    speech:next()
-                end
-                return
-            end
-
-            if self.equipped ~= 1 then
-                local item_update = self.inventory[self.equipped].update
-                if item_update ~= nil then
-                    self.inventory[self.equipped]:update(self)
-                end
-            end
-
-            -- physics
-            self.dy+=self.gravity
-            self.dx*=self.friction
-
-            -- controls
-            if btn(0) then --left
-                self.dx-=self.acc
-                self.running=true
-                self.flip_x=true
-            end
-            if btn(1) then --right
-                self.dx+=self.acc
-                self.running=true
-                self.flip_x=false
-            end
-            if btn(2) then --up
-                self.holding_up=true
-            else
-                self.holding_up=false
-            end
-            if btn(3) then --down
-                self.holding_down=true
-            else
-                self.holding_down=false
-            end
-
-            -- change equipped item
-            if not self.on_ladder then
-                if btnp(3) then
-                    self:cycle_equipment()
-                end
-            end
-
-
-            if self.running and not btn(0) and not btn(1) and not self.falling and not self.jumping then
-                self.running=false
-                self.sliding=true
-            end
-
-            if btnp(4) and (self.landed or self.on_ladder) then
-                self.on_ladder = false
-                self:jump()
-            end
-
-
-
-            -- ladder
-            if collide_map(self, "", 3) then
-                if self.holding_up and not self.jumping_off_ladder then
-                    self.on_ladder = true
-                end
-            else
-                self.on_ladder = false
-                self.jumping_off_ladder = false
-            end
-
-            if self.on_ladder then
-                if self.holding_up then
-                    self.dy = -self.climb_speed
-                elseif self.holding_down then
-                    self.dy = self.climb_speed
-                else
-                    self.dy = 0
-                end
-            end
-
-            -- check collisions up/down
-            if self.dy > 0 then
-                self.falling=true
-                self.landed=false
-                self.jumping=false
-
-                self.dy = limit_speed(self.dy, self.max_dy)
-
-                if collide_map(self, "down", 1) then
-                    self.landed = true
-                    self.falling=false
-                    self.dy=0
-                    self.y-=((self.y+self.h+1)%8)-1
-                end
-            elseif self.dy < 0 then
-                self.jumping = true
-                if collide_map(self, "up", 1) then
-                    self.dy=0
-                end
-            end
-
-            -- check collision left/right
-            if self.dx < 0 then
-                self.dx = limit_speed(self.dx, self.max_dx)
-                if collide_map(self, "left", 1)then
-                    self.dx=0
-                end
-            elseif self.dx > 0 then
-                self.dx = limit_speed(self.dx, self.max_dx)
-                if collide_map(self, "right", 1) then
-                    self.dx = 0
-                end
-            end
-
-            -- stop sliding
-            if self.sliding then
-                if abs(self.dx)<0.2 or self.running then
-                    self.dx = 0
-                    self.sliding = false
-                end
-            end
-
-
-
-            self.x += self.dx
-            self.y += self.dy
-
-        end,
-        cycle_equipment = function(self)
-            if self.inventory[self.equipped+1] ~= nil then
-                self.equipped += 1
-            else
-                self.equipped = 1
-            end
-
-            self:animate()
-        end,
-        animate = function(self)
-            if self.jumping then
-                self.sp = 68
-            elseif self.falling then
-                self.sp = 64
-            elseif self.sliding then
-                self.sp = 66
-            elseif self.running then
-                if time() - self.anim > 0.075 then
-                    self.anim=time()
-                    self.sp +=1
-                    if self.sp > 70 then
-                        self.sp = 67
-                    end
-                end
-            else -- idle
-                if time()-self.anim>0.3 then
-                    self.anim=time()
-                    self.sp+=1
-                    if self.sp>66 then
-                        self.sp=65
-                    end
-                end
-            end
-        end,
-        draw = function(self)
-            if self.equipped ~= 1 then
-                local item_draw = self.inventory[self.equipped].draw
-                if item_draw ~= nil then
-                    self.inventory[self.equipped]:draw(self)
-                end
-            end
-            spr(self.sp, self.x, self.y, 1, 1, self.flip_x)
-        end,
-        jump = function(self)
-            self.dy-=self.boost
-            self.landed = false
-            if self.on_ladder then
-                self.on_ladder = false
-                self.jumping_off_ladder = true
-            end
-        end,
-        reset_pos = function(self)
-            self.x = 10
-            self.y = 10
-        end
-    }
-    add(entities, player)
-    return player
-end
 
 
 function draw_map()
@@ -441,22 +162,17 @@ function draw_map()
 end
 
 function camera_update()
-    cam_x = player.x + (player.w / 2) - (CONFIG.SCREEN_WIDTH / 2)
-    cam_y = 0 -- to follow the player use: player.y - CONFIG.SCREEN_HEIGHT / 2
+    cam_x = 0
+    cam_y = 0
     camera(cam_x,cam_y)
 end
 
 function _init()
     log("PROGRAM START")
     cartdata("oscardalby_game_v0")
-
-    player = spawn_player(player_spawn_x, 70, 8, 8, 11)
-    for entity in all(entities) do
-        entity:init()
-    end
 end
 
-function _update60()
+function _update()
     core:update()
     if btnp(0) or btnp(1) or btnp(2) or btnp(3) or btnp(4) or btnp(5) then
         if start_menu then
@@ -469,9 +185,7 @@ function _update60()
     end
 
 
-    for entity in all(entities) do
-        entity:update()
-    end
+    board:update()
     camera_update()
     
 end
