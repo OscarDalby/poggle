@@ -67,6 +67,13 @@ end
 
 -- log end
 
+local function shuffle_arr(arr)
+    for i = #arr, 2, -1 do
+      local j = flr(rnd(i)) + 1
+      arr[i], arr[j] = arr[j], arr[i]
+    end
+  end
+
 local function alphabet(n)
     local letters = "abcdefghijklmnopqrstuvwxyz"
     local output = letters[n]

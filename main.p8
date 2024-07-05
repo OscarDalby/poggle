@@ -8,8 +8,11 @@ __lua__
 -- state
 local game_running = false
 local start_menu = true
-local timer = 90
+local timer_counting = true
+local timer = (90*30)+10
 local cam={x=0,y=0}
+local current_tileset
+local tile_config={}
 
 
 local tiles_4x4_classic = {
@@ -49,102 +52,23 @@ local tiles_4x4_new = {
     {2, 9, 6, 15, 18, 24}
 }
 
-
-local core = {
-    cursor_pos = 1,
-    action_options={"shake", "swap tile era", "change board size", "quit"},
-    action_option_function_mapping={"shake", "change_tileset", "change_board_size", "quit"},
-    action_option_map={},
-    action_timeout=2,
-    shake=function(self)
-    end,
-    change_tileset=function(self)
-    end,
-    change_board_size=function(self)
-    end,
-    quit=function(self)
-    end,
-    resume=function(self)
-        log("resumed")
-        start_menu = false
-        game_running = true
-    end,
-    draw_options=function(self)
-        local text_x = cam.x+(CONFIG.SCREEN_WIDTH - 64) / 2
-        local start_y=72
-        local step_y = 10
-        print(">",  text_x - 8, start_y+(self.cursor_pos*10), 7)
-        local i = 1
-        for option in all(self.action_options) do
-            print(option, text_x, start_y+(i*10), 10)
-            i+=1
-        end
-    end,
-    draw_timer=function(self)
-        local time_remaining_text = "time remaining:"
-        local start_x=28
-        local start_y=12
-        local color=7
-        print(time_remaining_text, start_x, start_y, color)
-        print(tostr(timer), start_x+2+(4*#time_remaining_text), start_y, color)
-    end,
-    draw=function(self)
-        if start_menu then
-            local text = "press any button to start"
-            spr(64,60,70)
-            print(text, cam.x+(CONFIG.SCREEN_WIDTH - #text * 4) / 2, 40, 10)
-        else
-            self:draw_options()
-            self:draw_timer()
-        end
-    end,
-    update=function(self)
-        if start_menu then return end
-        if btnp(2,1) then
-            local function_name = self.action_option_function_mapping[self.cursor_pos]
-            local function_to_call = self[function_name]
-            function_to_call(self)
-        end
-
-        if btnp(2) then
-            if self.cursor_pos > 1 then
-                self.cursor_pos -=1
-            end
-        end
-        if btnp(3) then
-            if self.cursor_pos < #self.action_options then
-                self.cursor_pos +=1
-            end
-        end
-    end
-}
-  
-local ui = {
-  init=function(self)
-  end,
-  update=function(self)
-  end,
-  draw=function(self)
-  end
-}
-
-
-
-local board={
+board={
     tiles={},
-    tile_config={},
     rows=4,
     cols=4,
     cube_spr=1,
     board_offset_x=30,
     board_offset_y=14,
     shake=function(self)
-        for cube in all(self.tiles) do
-            add(self.tile_config, cube[flr(rnd(5) + 1)])
+        shuffle_arr(current_tileset)
+        tile_config={}
+        for cube in all(current_tileset) do
+            local new_cube_val=cube[flr(rnd(5) + 1)]
+            add(tile_config, new_cube_val)
         end
     end,
     init=function(self)
-        self.tiles=tiles_4x4_new
+        current_tileset=tiles_4x4_new
         self:shake()
     end,
     update=function(self)
@@ -155,7 +79,7 @@ local board={
         local shadow_color=6
         for j = 1, self.rows do
             for i = 1, self.cols do
-                local tile = self.tile_config[index]
+                local tile = tile_config[index]
                 spr(1,i*12 - 48+self.board_offset_x,j*12+self.board_offset_y,7,1,1)
                 print(alphabet(tile),(i*12)+2+self.board_offset_x,(j*12)+2+self.board_offset_y, shadow_color)
                 print(alphabet(tile),(i*12)+3+self.board_offset_x,(j*12)+1+self.board_offset_y, color)
@@ -221,6 +145,108 @@ local board={
     end
     
 }
+
+
+local core = {
+    cursor_pos = 1,
+    action_options={"shake","pause timer", "swap tile era", "change board size", "restart"},
+    action_option_function_mapping={"shake","start_pause_timer", "change_tileset", "change_board_size", "restart"},
+    action_option_map={},
+    action_timeout=2,
+    shake=function(self)
+        board:shake()
+    end,
+    start_pause_timer=function(self)
+        if timer_counting then
+            timer_counting=false
+            self.action_options[2]="resume timer"
+        else
+            timer_counting=true
+            self.action_options[2]="pause timer"
+        end
+    end,
+    change_tileset=function(self)
+    end,
+    change_board_size=function(self)
+    end,
+    restart=function(self)
+        timer=(90*30)+10
+        board:shake()
+    end,
+    resume=function(self)
+        log("resumed")
+        start_menu = false
+        game_running = true
+    end,
+    draw_options=function(self)
+        local text_x = cam.x+(CONFIG.SCREEN_WIDTH - 64) / 2
+        local start_y=68
+        local step_y = 10
+        print(">",  text_x - 8, start_y+(self.cursor_pos*10), 7)
+        local i = 1
+        for option in all(self.action_options) do
+            print(option, text_x, start_y+(i*10), 10)
+            i+=1
+        end
+    end,
+    draw_timer=function(self)
+        local time_remaining_text = "time remaining:"
+        local start_x=28
+        local start_y=12
+        local color=7
+        print(time_remaining_text, start_x, start_y, color)
+        print(tostr(flr(timer/30)), start_x+2+(4*#time_remaining_text), start_y, color)
+    end,
+    draw=function(self)
+        if start_menu then
+            local text = "press any button to start"
+            spr(64,60,70)
+            print(text, cam.x+(CONFIG.SCREEN_WIDTH - #text * 4) / 2, 40, 10)
+        else
+            self:draw_options()
+            self:draw_timer()
+        end
+    end,
+    update=function(self)
+        if start_menu then return end
+
+        if timer_counting then
+            timer-=1
+        end
+
+        if btnp(2,1) then
+            local function_name = self.action_option_function_mapping[self.cursor_pos]
+            local function_to_call = self[function_name]
+            function_to_call(self)
+        end
+
+        if btnp(2) then
+            if self.cursor_pos > 1 then
+                self.cursor_pos -=1
+            end
+        end
+
+        if btnp(3) then
+            if self.cursor_pos < #self.action_options then
+                self.cursor_pos +=1
+            end
+        end
+
+    end
+}
+  
+local ui = {
+  init=function(self)
+  end,
+  update=function(self)
+  end,
+  draw=function(self)
+  end
+}
+
+
+
+
 
 
 
