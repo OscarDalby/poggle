@@ -9,7 +9,7 @@ __lua__
 local game_running = false
 local start_menu = true
 local timer_counting = true
-local timer_start = (5*30)+10
+local timer_start = (90*30)+10
 local timer = timer_start
 local timer_announced=false
 local cam={x=0,y=0}
