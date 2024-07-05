@@ -9,7 +9,8 @@ __lua__
 local game_running = false
 local start_menu = true
 local timer_counting = true
-local timer = (90*30)+10
+local timer = (5*30)+10
+local timer_announced=false
 local cam={x=0,y=0}
 local current_tileset
 local tile_config={}
@@ -210,11 +211,14 @@ local core = {
     update=function(self)
         if start_menu then return end
 
-        if timer_counting then
+        if timer_counting and timer > 0 then
             timer-=1
+        elseif timer < 1 and not timer_announced then
+            timer_announced=true
+            log("time finished!")
         end
 
-        if btnp(2,1) then
+        if btnp(4) then
             local function_name = self.action_option_function_mapping[self.cursor_pos]
             local function_to_call = self[function_name]
             function_to_call(self)
