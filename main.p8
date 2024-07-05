@@ -9,7 +9,8 @@ __lua__
 local game_running = false
 local start_menu = true
 local timer_counting = true
-local timer = (5*30)+10
+local timer_start = (5*30)+10
+local timer = timer_start
 local timer_announced=false
 local cam={x=0,y=0}
 local current_tileset
@@ -61,8 +62,12 @@ board={
     board_offset_x=30,
     board_offset_y=14,
     shake=function(self)
-        shuffle_arr(current_tileset)
+        -- reset states
+        timer=timer_start
+        timer_announced=false
         tile_config={}
+        
+        shuffle_arr(current_tileset)
         for cube in all(current_tileset) do
             local new_cube_val=cube[flr(rnd(5) + 1)]
             add(tile_config, new_cube_val)
@@ -215,6 +220,10 @@ local core = {
             timer-=1
         elseif timer < 1 and not timer_announced then
             timer_announced=true
+            sfx(0)
+            sfx(0)
+            sfx(0)
+            sfx(0)
             log("time finished!")
         end
 
@@ -342,3 +351,5 @@ __gfx__
 00000000a9999999999999999999999a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000a9999999999999999999999a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000aaaaaaaaaaaaaaaaaaaaaa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+0001000002750037100471006720087200a7200d7200e7200f7301273016730197301b7301c7401e7401f7402074021740217401f7401e7601d7601c7601c7601c7601d7601f7601f77020770207701e7701d770
