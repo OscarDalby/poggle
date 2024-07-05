@@ -67,6 +67,13 @@ end
 
 -- log end
 
+local function alphabet(n)
+    local letters = "abcdefghijklmnopqrstuvwxyz"
+    local output = letters[n]
+    return output
+  end
+  
+
 local function draw_screen_boundary(x, y)
     local x2 = x + CONFIG.SCREEN_WIDTH
     local y2 = y + CONFIG.SCREEN_HEIGHT
