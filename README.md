@@ -4,6 +4,10 @@
 - [Development Setup](#development-setup)
 - [Using the Debugger](#using-the-debugger)
 
+## Sample
+
+![poggle-sample](poggle.gif)
+
 ## Development Setup
 
 For development purposes, create a shortcut of the PICO-8 executable and prefix the target with the following command:
