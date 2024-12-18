@@ -1,5 +1,7 @@
 # poggle
 
+## A boggle remake for Pico-8
+
 ## Table of Contents
 - [Development Setup](#development-setup)
 - [Using the Debugger](#using-the-debugger)
